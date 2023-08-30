@@ -1,6 +1,6 @@
 # Live Transcription with Whisper
 
-Sample with an `Macbook Pro (M1)`
+Sample with an `Macbook Pro (M1)` with the `tiny ggml` model:
 
 https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/6364a160-4043-437d-be36-52e84a91fe60
 
