@@ -1,6 +1,7 @@
 # Live Transcription with Whisper
 
-https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/99ad0808-f212-4f5e-9406-7ee5911b9f5c
+<video src='https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/99ad0808-f212-4f5e-9406-7ee5911b9f5c' width=640/>
+
 (*🔈 sound on*)
 
 # Setup
