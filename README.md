@@ -1,5 +1,7 @@
 # Live Transcription with Whisper
 
+Sample with an `Macbook Pro (M1)`
+
 https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/6364a160-4043-437d-be36-52e84a91fe60
 
 (*🔈 sound on*, [audio source](https://www.youtube.com/watch?v=-WSrY-xH5pI))
