@@ -15,7 +15,7 @@ How does it work?
 """
 
 import datetime
-import os
+import numpy as np
 import queue
 import re
 import threading
@@ -23,7 +23,8 @@ import wave
 from pathlib import Path
 
 import pyaudio
-from whisper_cpp_python import Whisper
+from whispercpp import Whisper
+
 
 # Audio settings
 STEP_IN_SEC: int = 1    # We'll increase the processable audio data by this
@@ -50,7 +51,7 @@ length_queue = queue.Queue(maxsize=LENGHT_IN_SEC)
 # Whisper model
 tiny_model = "./models/ggml-model-whisper-tiny.bin"
 small_model = "./models/ggml-model-whisper-small.bin"
-whisper = Whisper(model_path=tiny_model, n_threads=WHISPER_THREADS)
+whisper = Whisper.from_pretrained(tiny_model)
 
 
 def producer_thread():
@@ -95,22 +96,16 @@ def consumer_thread():
             # We index it so it won't get removed
             audio_data_to_precess += length_queue.queue[i]
 
-        tmp_filepath = f"./tmp_audio/output_{datetime.datetime.now()}.wav"
-        with wave.open(tmp_filepath, "wb") as wf:
-            wf.setnchannels(NB_CHANNELS)
-            wf.setsampwidth(2)    # 16-bit audio
-            wf.setframerate(RATE)
-            wf.writeframes(audio_data_to_precess)
+        # convert the bytes data toa  numpy array
+        audio_data_to_precess = np.frombuffer(audio_data_to_precess, np.int16).astype(np.float32) / 255.0
 
-        res = whisper.transcribe(file=tmp_filepath, language=WHISPER_LANGUAGE)
-        transcription = res["text"]
+        transcription = whisper.transcribe(audio_data_to_precess)
+
         # remove anything from the text which is between () or [] --> these are non-verbal background noises/music/etc.
         transcription = re.sub(r"\[.*\]", "", transcription)
         transcription = re.sub(r"\(.*\)", "", transcription)
         transcription = transcription.ljust(MAX_SENTENCE_CHARACTERS, " ")
         print(transcription, end='\r', flush=True)
-
-        os.remove(tmp_filepath)
 
         audio_queue.task_done()
 
