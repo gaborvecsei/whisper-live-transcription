@@ -25,6 +25,8 @@ from pathlib import Path
 import pyaudio
 from whisper_cpp_python import Whisper
 
+# Yeah I could do this config with argparse, but I won't...
+
 # Audio settings
 STEP_IN_SEC: int = 1    # We'll increase the processable audio data by this
 LENGHT_IN_SEC: int = 6    # We'll process this amount of audio data together maximum
@@ -37,13 +39,13 @@ WHISPER_TEMPERATURE = 0.8
 WHISPER_LANGUAGE = "en"
 WHISPER_THREADS = 1
 
-# Visualization
+# Visualization (expected max number of characters for LENGHT_IN_SEC audio)
 MAX_SENTENCE_CHARACTERS = 80
 
-# This queue holds all the 1 second audio chunks
+# This queue holds all the 1-second audio chunks
 audio_queue = queue.Queue()
 
-# This queue hold all the chunks which will be processed together
+# This queue holds all the chunks that will be processed together
 # If the chunk is filled to the max, it will be emptied
 length_queue = queue.Queue(maxsize=LENGHT_IN_SEC)
 
@@ -95,6 +97,8 @@ def consumer_thread():
             # We index it so it won't get removed
             audio_data_to_precess += length_queue.queue[i]
 
+        # TODO: We should not write to a file, this happens now because of the limitations in the whisper_cpp_python package
+        # (https://github.com/carloscdias/whisper-cpp-python/issues/13)
         tmp_filepath = f"./tmp_audio/output_{datetime.datetime.now()}.wav"
         with wave.open(tmp_filepath, "wb") as wf:
             wf.setnchannels(NB_CHANNELS)
@@ -107,9 +111,11 @@ def consumer_thread():
         # remove anything from the text which is between () or [] --> these are non-verbal background noises/music/etc.
         transcription = re.sub(r"\[.*\]", "", transcription)
         transcription = re.sub(r"\(.*\)", "", transcription)
+        # We do this for the more clean visualization (when the next transcription we print would be shorter then the one we printed)
         transcription = transcription.ljust(MAX_SENTENCE_CHARACTERS, " ")
         print(transcription, end='\r', flush=True)
 
+        # Cleanup
         os.remove(tmp_filepath)
 
         audio_queue.task_done()
