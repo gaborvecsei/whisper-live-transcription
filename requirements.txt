@@ -1,3 +1,6 @@
 pyaudio
+
 whisper-cpp-python
+faster-whisper
+git+https://github.com/aarnphm/whispercpp.git
 
