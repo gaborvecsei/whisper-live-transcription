@@ -14,15 +14,11 @@ How does it work?
 ------------------------------------------
 """
 
-import datetime
-import io
-import os
 import queue
 import re
 import threading
-import wave
-from pathlib import Path
 
+import numpy as np
 import pyaudio
 from faster_whisper import WhisperModel
 
@@ -36,7 +32,6 @@ RATE = 16000
 CHUNK = RATE
 
 # Whisper settings
-WHISPER_TEMPERATURE = 0.8
 WHISPER_LANGUAGE = "en"
 WHISPER_THREADS = 4
 
@@ -51,8 +46,6 @@ audio_queue = queue.Queue()
 length_queue = queue.Queue(maxsize=LENGHT_IN_SEC)
 
 # Whisper model
-tiny_model = "./models/ggml-model-whisper-tiny.bin"
-small_model = "./models/ggml-model-whisper-small.bin"
 whisper = WhisperModel("tiny", device="cpu", compute_type="int8", cpu_threads=WHISPER_THREADS, download_root="./models")
 
 
@@ -93,21 +86,18 @@ def consumer_thread():
         length_queue.put(audio_data)
 
         # Concatenate audio data in the lenght_queue
-        audio_data_to_precess = b""
+        audio_data_to_process = b""
         for i in range(length_queue.qsize()):
             # We index it so it won't get removed
-            audio_data_to_precess += length_queue.queue[i]
+            audio_data_to_process += length_queue.queue[i]
 
-        # TODO: We should not write to a file, this happens now because of the limitations in the whisper_cpp_python package
-        # (https://github.com/carloscdias/whisper-cpp-python/issues/13)
-        tmp_filepath = f"./tmp_audio/output_{datetime.datetime.now()}.wav"
-        with wave.open(tmp_filepath, "wb") as wf:
-            wf.setnchannels(NB_CHANNELS)
-            wf.setsampwidth(2)    # 16-bit audio
-            wf.setframerate(RATE)
-            wf.writeframes(audio_data_to_precess)
+        # convert the bytes data toa  numpy array
+        audio_data_array: np.ndarray = np.frombuffer(audio_data_to_process, np.int16).astype(np.float32) / 255.0
+        # audio_data_array = np.expand_dims(audio_data_array, axis=0)
 
-        segments, _ = whisper.transcribe(tmp_filepath,
+        segments, _ = whisper.transcribe(audio_data_array,
+                                         language=WHISPER_LANGUAGE,
+                                         beam_size=5,
                                          vad_filter=True,
                                          vad_parameters=dict(min_silence_duration_ms=1000))
         segments = [s.text for s in segments]
@@ -119,18 +109,10 @@ def consumer_thread():
         transcription = transcription.ljust(MAX_SENTENCE_CHARACTERS, " ")
         print(transcription, end='\r', flush=True)
 
-        # Cleanup
-        os.remove(tmp_filepath)
-
         audio_queue.task_done()
 
 
 if __name__ == "__main__":
-    # We'll store the temporary audio files here
-    tmp_audio_folder = Path("./tmp_audio")
-    if not tmp_audio_folder.exists():
-        tmp_audio_folder.mkdir()
-
     producer = threading.Thread(target=producer_thread)
     producer.start()
 
