@@ -15,6 +15,7 @@ How does it work?
 """
 
 import datetime
+import io
 import os
 import queue
 import re
@@ -23,7 +24,7 @@ import wave
 from pathlib import Path
 
 import pyaudio
-from whisper_cpp_python import Whisper
+from faster_whisper import WhisperModel
 
 # Audio settings
 STEP_IN_SEC: int = 1    # We'll increase the processable audio data by this
@@ -35,7 +36,7 @@ CHUNK = RATE
 # Whisper settings
 WHISPER_TEMPERATURE = 0.8
 WHISPER_LANGUAGE = "en"
-WHISPER_THREADS = 1
+WHISPER_THREADS = 4
 
 # Visualization
 MAX_SENTENCE_CHARACTERS = 80
@@ -50,7 +51,7 @@ length_queue = queue.Queue(maxsize=LENGHT_IN_SEC)
 # Whisper model
 tiny_model = "./models/ggml-model-whisper-tiny.bin"
 small_model = "./models/ggml-model-whisper-small.bin"
-whisper = Whisper(model_path=tiny_model, n_threads=WHISPER_THREADS)
+whisper = WhisperModel("tiny", device="cpu", compute_type="int8", cpu_threads=WHISPER_THREADS, download_root="./models")
 
 
 def producer_thread():
@@ -102,8 +103,11 @@ def consumer_thread():
             wf.setframerate(RATE)
             wf.writeframes(audio_data_to_precess)
 
-        res = whisper.transcribe(file=tmp_filepath, language=WHISPER_LANGUAGE)
-        transcription = res["text"]
+        segments, _ = whisper.transcribe(tmp_filepath,
+                                         vad_filter=True,
+                                         vad_parameters=dict(min_silence_duration_ms=1000))
+        segments = [s.text for s in segments]
+        transcription = " ".join(segments)
         # remove anything from the text which is between () or [] --> these are non-verbal background noises/music/etc.
         transcription = re.sub(r"\[.*\]", "", transcription)
         transcription = re.sub(r"\(.*\)", "", transcription)
