@@ -34,7 +34,7 @@ def execute_blocking_whisper_prediction(model: WhisperModel, audio_data_array) -
     segments, _ = model.transcribe(audio_data_array,
                                    language="en",
                                    beam_size=5,
-                                   vad_filter=False,
+                                   vad_filter=True,
                                    vad_parameters=dict(min_silence_duration_ms=1000))
     segments = [s.text for s in segments]
     transcription = " ".join(segments)
