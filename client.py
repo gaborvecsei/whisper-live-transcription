@@ -1,5 +1,6 @@
 import queue
 import re
+import sys
 import threading
 import time
 from typing import Dict, List
@@ -96,7 +97,7 @@ def consumer_thread(stats):
 
         transcription_postprocessing_end_time = time.time()
 
-        print(transcription_to_visualize, end='\r', flush=True)
+        sys.stdout.write('\033[K' + transcription_to_visualize + '\r')
 
         audio_queue.task_done()
 
