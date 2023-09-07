@@ -1,8 +1,10 @@
 # Live Transcription with Whisper
 
-# Sample (outdated)
+Live transcription test with the Whisper model (using `fast-whisper`) in a client-server setup where the server can handle multiple clients.
 
-Sample with an `Macbook Pro (M1)`
+# Sample
+
+Sample with a `Macbook Pro (M1)`
 
 https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/3a4667ce-9af2-4dfe-aa68-8c9ad6307e74
 
@@ -18,11 +20,11 @@ https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/3a4667
 - `$ python server.py`
 - `$ python client.py`
 
-There are a few parameters at each script that you can modify
+There are a few parameters in each script that you can modify
 
-# How it works?
+# How does it work?
 
-I this beautiful art will explain it:
+This beautiful art will explain this:
 
 ```
 - step = 1
@@ -44,5 +46,5 @@ etc...
 
 # Improvements
 
-- Use a [`VAD`](https://github.com/snakers4/silero-vad) on the client side, and either send the audio for transcription when we detect a longer silence (e.g. 1sec) or if there is no silence we can fall back to the maximum length.
+- Use a [`VAD`](https://github.com/snakers4/silero-vad) on the client side, and either send the audio for transcription when we detect a longer silence (e.g. 1 sec) or if there is no silence we can fall back to the maximum length.
 - Transcribe shorter timeframes to get more instant transcriptions and meanwhile, we can use larger timeframes to "correct" already transcribed parts (async correction)
