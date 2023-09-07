@@ -4,9 +4,9 @@
 
 Sample with an `Macbook Pro (M1)`
 
-https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/6364a160-4043-437d-be36-52e84a91fe60
+https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/3a4667ce-9af2-4dfe-aa68-8c9ad6307e74
 
-(_🔈 sound on_, [audio source](https://www.youtube.com/watch?v=-WSrY-xH5pI), `whisper-cpp-python` package, `tiny` model)
+(_🔈 sound on_, `faster-whisper` package, `base` model - latency was around 0.5s)
 
 # Setup
 
@@ -41,3 +41,8 @@ etc...
 ------------------------------------------
 
 ```
+
+# Improvements
+
+- Use a [`VAD`](https://github.com/snakers4/silero-vad) on the client side, and either send the audio for transcription when we detect a longer silence (e.g. 1sec) or if there is no silence we can fall back to the maximum length.
+- Transcribe shorter timeframes to get more instant transcriptions and meanwhile, we can use larger timeframes to "correct" already transcribed parts (async correction)
