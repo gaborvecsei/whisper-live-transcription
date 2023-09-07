@@ -20,6 +20,8 @@ CHUNK = RATE
 # Visualization (expected max number of characters for LENGHT_IN_SEC audio)
 MAX_SENTENCE_CHARACTERS = 80
 
+TRANSCRIPTION_API_ENDPOINT = "http://localhost:8008/predict"
+
 # This queue holds all the 1-second audio chunks
 audio_queue = queue.Queue()
 
@@ -29,8 +31,9 @@ length_queue = queue.Queue(maxsize=LENGHT_IN_SEC)
 
 
 def send_audio_to_server(audio_data) -> str:
-    api_url = 'http://localhost:8008/predict'
-    response = requests.post(api_url, data=audio_data, headers={'Content-Type': 'application/octet-stream'})
+    response = requests.post(TRANSCRIPTION_API_ENDPOINT,
+                             data=audio_data,
+                             headers={'Content-Type': 'application/octet-stream'})
     result = response.json()
     return result["prediction"]
 

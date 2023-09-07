@@ -8,14 +8,18 @@ from faster_whisper import WhisperModel
 app = FastAPI()
 
 NUM_WORKERS = 10
+MODEL_TYPE = "base.en"
+LANGUAGE_CODE = "en"
+CPU_THREADS = 4
+VAD_FILTER = True
 
 
 def create_whisper_model() -> WhisperModel:
-    whisper = WhisperModel("base",
+    whisper = WhisperModel(MODEL_TYPE,
                            device="cpu",
                            compute_type="int8",
                            num_workers=NUM_WORKERS,
-                           cpu_threads=1,
+                           cpu_threads=4,
                            download_root="./models")
     print("Loaded model")
     return whisper
@@ -32,9 +36,9 @@ async def parse_body(request: Request):
 
 def execute_blocking_whisper_prediction(model: WhisperModel, audio_data_array) -> str:
     segments, _ = model.transcribe(audio_data_array,
-                                   language="en",
+                                   language=LANGUAGE_CODE,
                                    beam_size=5,
-                                   vad_filter=True,
+                                   vad_filter=VAD_FILTER,
                                    vad_parameters=dict(min_silence_duration_ms=1000))
     segments = [s.text for s in segments]
     transcription = " ".join(segments)
