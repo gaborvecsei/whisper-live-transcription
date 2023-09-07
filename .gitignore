@@ -1,3 +1,5 @@
 .DS_Store
 models/
 tmp_audio/
+asd.py
+test-*
