@@ -1,6 +1,6 @@
 # Live Transcription with Whisper PoC client-server
 
-Live transcription PoC with the Whisper model (using `fast-whisper`) in a client-server setup where the server can handle multiple clients.
+Live transcription PoC with the Whisper model (using `faster-whisper`) in a client-server setup where the server can handle multiple clients.
 
 # Sample
 
