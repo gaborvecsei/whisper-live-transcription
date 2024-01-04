@@ -1,4 +1,5 @@
 import asyncio
+from typing import List
 
 import numpy as np
 import uvicorn
@@ -8,7 +9,7 @@ from faster_whisper import WhisperModel
 app = FastAPI()
 
 NUM_WORKERS = 10
-MODEL_TYPE = "base.en"
+MODEL_TYPE = "tiny.en"
 LANGUAGE_CODE = "en"
 CPU_THREADS = 4
 VAD_FILTER = True
@@ -34,7 +35,7 @@ async def parse_body(request: Request):
     return data
 
 
-def execute_blocking_whisper_prediction(model: WhisperModel, audio_data_array) -> str:
+def execute_blocking_whisper_prediction(model: WhisperModel, audio_data_array: np.ndarray) -> str:
     segments, _ = model.transcribe(audio_data_array,
                                    language=LANGUAGE_CODE,
                                    beam_size=5,

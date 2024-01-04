@@ -3,3 +3,4 @@ models/
 tmp_audio/
 asd.py
 test-*
+.venv/
