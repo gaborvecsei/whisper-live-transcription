@@ -1,6 +1,3 @@
-import datetime
-import io
-import re
 import time
 
 import gradio as gr
@@ -16,9 +13,9 @@ TRANSCRIPTION_API_ENDPOINT = "http://localhost:8008/predict"
 
 
 def send_audio_to_server(audio_data: np.ndarray) -> str:
+    # This is how the server expects the data
     audio_data_bytes = audio_data.astype(np.int16).tobytes()
 
-    # Send octet stream
     response = requests.post(TRANSCRIPTION_API_ENDPOINT,
                              data=audio_data_bytes,
                              headers={
@@ -30,7 +27,7 @@ def send_audio_to_server(audio_data: np.ndarray) -> str:
     return result["prediction"]
 
 
-def dummy_function(stream, new_chunk, transcription_display, max_length, information_table_outout, latency_data):
+def dummy_function(stream, new_chunk, max_length, latency_data, current_transcription, transcription_history):
     start_time = time.time()
 
     if latency_data is None:
@@ -41,7 +38,7 @@ def dummy_function(stream, new_chunk, transcription_display, max_length, informa
         }
 
     sampling_rate, y = new_chunk
-    y = y.astype(np.float32)    # This is the only preprocessing we need as this is how the API expects the data
+    y = y.astype(np.float32)
 
     if stream is not None:
         stream = np.concatenate([stream, y])
@@ -49,41 +46,44 @@ def dummy_function(stream, new_chunk, transcription_display, max_length, informa
         stream = y
 
     # Perform the transcription every second
-    # TODO: can be problematic - as in theory we could get a chunk which is 0.5 sec long
-    if len(stream) % sampling_rate != 0:
-        return stream, transcription_display, information_table_outout, latency_data
+    # TODO: can be problematic - as in theory we could get a chunk which is 0.5 sec long - but it's good enough for now
+    # if len(stream) % sampling_rate != 0:
+    #     return stream, transcription_display, information_table_outout, latency_data, current_transcription, transcription_history
 
     transcription = "ERROR"
     try:
         sampling_start_time = time.time()
-        # We need to resample the audio chunk to 16kHz (without this we don't have any output)
+        # We need to resample the audio chunk to 16kHz (without this we don't have any output) - gradio cannot handle this
         # (https://github.com/jonashaag/audio-resampling-in-python)
-        # We need to resample here, because if we resample chunk by chunk, the audio will be distorted
+        # We need to resample the concatenated stream, because if we resample chunk by chunk, the audio will be distorted
         stream_resampled = librosa.resample(stream, orig_sr=sampling_rate, target_sr=16000)
         sampling_end_time = time.time()
         latency_data["total_resampling_latency"].append(sampling_end_time - sampling_start_time)
 
         transcription_start_time = time.time()
         transcription = send_audio_to_server(stream_resampled)
+        current_transcription = f"{transcription}"
         # remove anything from the text which is between () or [] --> these are non-verbal background noises/music/etc.
         # transcription = re.sub(r"\[.*\]", "", transcription)
         # transcription = re.sub(r"\(.*\)", "", transcription)
         transcription_end_time = time.time()
         latency_data["total_transcription_latency"].append(transcription_end_time - transcription_start_time)
 
-    except:
-        print("[*] There is an error with the transcription")
+    except Exception as e:
+        print("[*] There is an error with the transcription", e)
 
     end_time = time.time()
     latency_data["total_latency"].append(end_time - start_time)
 
-    # Let's concat the current transcription with the previous one
-    printable_date = datetime.datetime.now().strftime("%H:%M:%S")
-    display_text = f"`{printable_date}` 🔈 {transcription}\n\n{transcription_display}"
-
     # Reset the stream if it's already exceeding the maximum length
+    # This is required as for a longer audio the latency increases and we'd like to keep it as low as possible
     if len(stream) > sampling_rate * max_length:
         stream = None
+        transcription_history.append(current_transcription)
+        current_transcription = ""
+
+    display_text = f"{current_transcription}\n\n"
+    display_text += "\n\n".join(transcription_history[::-1])
 
     info_df = pd.DataFrame(latency_data)
     info_df = info_df.apply(lambda x: x * 1000)
@@ -92,7 +92,7 @@ def dummy_function(stream, new_chunk, transcription_display, max_length, informa
     info_df = info_df.astype(str) + " ms"
     info_df = info_df.T
 
-    return stream, display_text, info_df.to_markdown(), latency_data
+    return stream, display_text, info_df.to_markdown(), latency_data, current_transcription, transcription_history
 
 
 custom_css = """
@@ -101,14 +101,16 @@ footer {visibility: hidden}
 """
 
 with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# Live Transcription")
+    gr.Markdown("# Live Transcription\n\n**Right now only English is supported**")
 
-    # This state stores the audio data that we'll process
-    stream_state = gr.State()
-    # This state stores the latency data
-    latency_data_state = gr.State()
-    # This stores the current transcription (as we process the audio in chunks, and we have a maximum latency)
-    current_transcription_state = gr.State()
+    # Stores the audio data that we'll process
+    stream_state = gr.State(None)
+    # Stores the latency data
+    latency_data_state = gr.State(None)
+    # Stores the transcription history that we can visualize
+    transcription_history_state = gr.State([])
+    # Stores the current transcription (as we process the audio in chunks, and we have a maximum lengtht of audio that we process together)
+    current_transcription_state = gr.State("")
 
     with gr.Row():
         mic_audio_input = gr.Audio(sources=["microphone"], streaming=True)
@@ -125,21 +127,31 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
     # In gradio the default samplign rate is 48000 (https://github.com/gradio-app/gradio/issues/6526)
     # and the chunks size varies between 24000 and 48000 - so between 0.5sec and 1 sec
     mic_audio_input.stream(dummy_function, [
-        stream_state, mic_audio_input, transcription_display, max_length_input, information_table_outout,
-        latency_data_state
-    ], [stream_state, transcription_display, information_table_outout, latency_data_state],
+        stream_state, mic_audio_input, max_length_input, latency_data_state, current_transcription_state,
+        transcription_history_state
+    ], [
+        stream_state, transcription_display, information_table_outout, latency_data_state, current_transcription_state,
+        transcription_history_state
+    ],
                            show_progress="hidden")
 
-    def _reset_button_click(stream_state, transcription_display, information_table_outout, latency_data_state):
+    def _reset_button_click(stream_state, transcription_display, information_table_outout, latency_data_state,
+                            transcription_history_state, current_transcription_state):
         stream_state = None
         transcription_display = ""
         information_table_outout = ""
         latency_data_state = None
-        return stream_state, transcription_display, information_table_outout, latency_data_state
+        transcription_history_state = []
+        current_transcription_state = ""
 
-    reset_button.click(_reset_button_click,
-                       [stream_state, transcription_display, information_table_outout, latency_data_state],
-                       [stream_state, transcription_display, information_table_outout, latency_data_state])
+        return stream_state, transcription_display, information_table_outout, latency_data_state, transcription_history_state, current_transcription_state
 
-# Launch the Gradio app
-demo.launch(server_name="0.0.0.0")
+    reset_button.click(_reset_button_click, [
+        stream_state, transcription_display, information_table_outout, latency_data_state, transcription_history_state,
+        current_transcription_state
+    ], [
+        stream_state, transcription_display, information_table_outout, latency_data_state, transcription_history_state,
+        current_transcription_state
+    ])
+
+demo.launch(server_name="0.0.0.0", server_port=18445)
