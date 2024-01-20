@@ -1,3 +1,5 @@
+[![Visitors](https://api.visitorbadge.io/api/combined?path=https%3A%2F%2Fgithub.com%2Fgaborvecsei%2Fwhisper-live-transcription&labelColor=%23f47373&countColor=%23d9e3f0&style=flat-square&labelStyle=upper)](https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2Fgaborvecsei%2Fwhisper-live-transcription)
+
 # Live Transcription with Whisper PoC client-server
 
 Live transcription PoC with the Whisper model (using `faster-whisper`) in a client-server setup where the server can handle multiple clients.
