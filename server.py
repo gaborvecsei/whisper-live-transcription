@@ -8,8 +8,7 @@ from faster_whisper import WhisperModel
 app = FastAPI()
 
 NUM_WORKERS = 10
-MODEL_TYPE = "tiny.en"
-LANGUAGE_CODE = "en"
+MODEL_TYPE = "tiny"
 CPU_THREADS = 4
 VAD_FILTER = True
 
@@ -34,12 +33,15 @@ async def parse_body(request: Request):
     return data
 
 
-def execute_blocking_whisper_prediction(model: WhisperModel, audio_data_array: np.ndarray) -> str:
+def execute_blocking_whisper_prediction(model: WhisperModel,
+                                        audio_data_array: np.ndarray,
+                                        language_code: str = "") -> str:
+    language_code = language_code.lower().strip()
     segments, _ = model.transcribe(audio_data_array,
-                                   language=LANGUAGE_CODE,
+                                   language=language_code if language_code != "" else None,
                                    beam_size=5,
                                    vad_filter=VAD_FILTER,
-                                   vad_parameters=dict(min_silence_duration_ms=1000))
+                                   vad_parameters=dict(min_silence_duration_ms=500))
     segments = [s.text for s in segments]
     transcription = " ".join(segments)
     transcription = transcription.strip()
@@ -47,14 +49,14 @@ def execute_blocking_whisper_prediction(model: WhisperModel, audio_data_array: n
 
 
 @app.post("/predict")
-async def predict(audio_data: bytes = Depends(parse_body)):
+async def predict(audio_data: bytes = Depends(parse_body), language_code: str = ""):
     # Convert the audio bytes to a NumPy array
     audio_data_array: np.ndarray = np.frombuffer(audio_data, np.int16).astype(np.float32) / 255.0
 
     try:
         # Run the prediction on the audio data
         result = await asyncio.get_running_loop().run_in_executor(None, execute_blocking_whisper_prediction, model,
-                                                                  audio_data_array)
+                                                                  audio_data_array, language_code)
 
     except Exception as e:
         print(e)
@@ -64,5 +66,4 @@ async def predict(audio_data: bytes = Depends(parse_body)):
 
 
 if __name__ == "__main__":
-    # Run the FastAPI app with multiple threads
     uvicorn.run(app, host="0.0.0.0", port=8008)

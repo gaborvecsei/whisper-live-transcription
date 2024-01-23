@@ -12,12 +12,13 @@ LENGHT_IN_SEC: int = 6    # We'll process this amount of audio data together max
 TRANSCRIPTION_API_ENDPOINT = "http://localhost:8008/predict"
 
 
-def send_audio_to_server(audio_data: np.ndarray) -> str:
+def send_audio_to_server(audio_data: np.ndarray, language_code: str = "") -> str:
     # This is how the server expects the data
     audio_data_bytes = audio_data.astype(np.int16).tobytes()
 
     response = requests.post(TRANSCRIPTION_API_ENDPOINT,
                              data=audio_data_bytes,
+                             params={"language_code": language_code},
                              headers={
                                  "accept": "application/json",
                                  "Content-Type": "application/octet-stream"
@@ -27,7 +28,8 @@ def send_audio_to_server(audio_data: np.ndarray) -> str:
     return result["prediction"]
 
 
-def dummy_function(stream, new_chunk, max_length, latency_data, current_transcription, transcription_history):
+def dummy_function(stream, new_chunk, max_length, latency_data, current_transcription, transcription_history,
+                   language_code):
     start_time = time.time()
 
     if latency_data is None:
@@ -61,7 +63,11 @@ def dummy_function(stream, new_chunk, max_length, latency_data, current_transcri
         latency_data["total_resampling_latency"].append(sampling_end_time - sampling_start_time)
 
         transcription_start_time = time.time()
-        transcription = send_audio_to_server(stream_resampled)
+
+        if isinstance(language_code, list):
+            language_code = language_code[0] if len(language_code) > 0 else ""
+
+        transcription = send_audio_to_server(stream_resampled, str(language_code))
         current_transcription = f"{transcription}"
         # remove anything from the text which is between () or [] --> these are non-verbal background noises/music/etc.
         # transcription = re.sub(r"\[.*\]", "", transcription)
@@ -92,7 +98,10 @@ def dummy_function(stream, new_chunk, max_length, latency_data, current_transcri
     info_df = info_df.astype(str) + " ms"
     info_df = info_df.T
 
-    return stream, display_text, info_df.to_markdown(), latency_data, current_transcription, transcription_history
+    info_df_markdown = info_df.to_markdown()
+    info_df_markdown += f"\n\nTotal data points: {len(latency_data['total_latency'])}"
+
+    return stream, display_text, info_df_markdown, latency_data, current_transcription, transcription_history
 
 
 custom_css = """
@@ -101,7 +110,15 @@ footer {visibility: hidden}
 """
 
 with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# Live Transcription\n\n**Right now only English is supported**")
+    gr.Markdown("# Live Transcription\n\n")
+    gr.Markdown("""## How to use it
+
+                * After you press `Start` you can start speaking - you microphone will be used
+                    * Enable the microphone input in Chrome/Firefox
+                * Select a language code, or if it's not selected it'll try to detect the language based on the audio
+                * If you press '`Stop`', then please also press '`Reset`'
+                * `Max length of audio` - how much audio data we'll process together. After reaching this limit, we'll reset the audio data and start over (this is when a new line appears)
+                """)
 
     # Stores the audio data that we'll process
     stream_state = gr.State(None)
@@ -116,19 +133,25 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
         mic_audio_input = gr.Audio(sources=["microphone"], streaming=True)
         reset_button = gr.Button("Reset")
         max_length_input = gr.Slider(value=6, minimum=2, maximum=30, step=1, label="Max length of audio (sec)")
+        language_code_input = gr.Dropdown([("Auto detect", ""), ("English", "en"), ("Spanish", "es"), ("Italian", "it"),
+                                           ("German", "de"), ("Hungarian", "hu"), ("Russian", "ru")],
+                                          label="Language code",
+                                          multiselect=False)
 
     gr.Markdown("## Transcription\n\n(audio is sent to the server each second)\n\n---------")
     transcription_display = gr.Markdown(elem_classes=["transcription_display_container"])
 
-    gr.Markdown("## Statistics\n\n---------")
+    gr.Markdown(
+        "## Statistics\n\n---------\n\nThese are just rough estimates, as the latency can vary a lot based on where are the servers located, resampling is required, etc."
+    )
 
-    information_table_outout = gr.Markdown("Info about latency will be shown here")
+    information_table_outout = gr.Markdown("(Info about latency will be shown here)")
 
     # In gradio the default samplign rate is 48000 (https://github.com/gradio-app/gradio/issues/6526)
     # and the chunks size varies between 24000 and 48000 - so between 0.5sec and 1 sec
     mic_audio_input.stream(dummy_function, [
         stream_state, mic_audio_input, max_length_input, latency_data_state, current_transcription_state,
-        transcription_history_state
+        transcription_history_state, language_code_input
     ], [
         stream_state, transcription_display, information_table_outout, latency_data_state, current_transcription_state,
         transcription_history_state
@@ -154,4 +177,4 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
         current_transcription_state
     ])
 
-demo.launch(server_name="0.0.0.0", server_port=18445)
+demo.launch(server_name="0.0.0.0", server_port=5656)
