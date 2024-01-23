@@ -1,4 +1,6 @@
+import os
 import time
+from typing import Optional
 
 import gradio as gr
 import librosa
@@ -177,4 +179,28 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
         current_transcription_state
     ])
 
-demo.launch(server_name="0.0.0.0", server_port=5656)
+SSL_CERT_PATH:Optional[str] = os.environ.get("SSL_CERT_PATH", None)
+SSL_KEY_PATH:Optional[str]  = os.environ.get("SSL_KEY_PATH", None)
+SSL_VERIFY:bool = bool(os.environ.get("SSL_VERIFY", False))
+SHARE:bool = bool(os.environ.get("SHARE", False))
+
+print(f"Settings: SSL_CERT_PATH={SSL_CERT_PATH}, SSL_KEY_PATH={SSL_KEY_PATH}, SSL_VERIFY={SSL_VERIFY}, SHARE={SHARE}")
+
+if SHARE:
+    print("[*] Running in share mode")
+    ssl_certfile_path = None
+    ssl_keyfile_path = None
+
+else:
+    if SSL_CERT_PATH is not None and SSL_KEY_PATH is not None:
+        print("[*] Running in SSL mode")
+        ssl_certfile_path = SSL_CERT_PATH
+        ssl_keyfile_path = SSL_KEY_PATH
+    else:
+        print("[*] Running in non-SSL mode")
+        ssl_certfile_path = None
+        ssl_keyfile_path = None
+
+
+
+demo.launch(server_name="0.0.0.0", server_port=5656, ssl_certfile=ssl_certfile_path, ssl_keyfile=ssl_keyfile_path, ssl_verify=SSL_VERIFY)

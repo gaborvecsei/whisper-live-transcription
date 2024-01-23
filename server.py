@@ -7,19 +7,34 @@ from faster_whisper import WhisperModel
 
 app = FastAPI()
 
+MODEL_TYPE = "large-v2"
+
+# For CPU usage (https://github.com/SYSTRAN/faster-whisper/issues/100#issuecomment-1492141352)
 NUM_WORKERS = 10
-MODEL_TYPE = "tiny"
 CPU_THREADS = 4
+
+# For GPU usage
+GPU_DEVICE_INDICES = [0, 1, 2, 3]
+
 VAD_FILTER = True
 
 
 def create_whisper_model() -> WhisperModel:
+    # GPU:
     whisper = WhisperModel(MODEL_TYPE,
-                           device="cpu",
-                           compute_type="int8",
-                           num_workers=NUM_WORKERS,
-                           cpu_threads=4,
+                           device="cuda",
+                           compute_type="float16",
+                           device_index=GPU_DEVICE_INDICES,
                            download_root="./models")
+
+    # CPU:
+    # whisper = WhisperModel(MODEL_TYPE,
+    #                        device="cpu",
+    #                        compute_type="int8",
+    #                        num_workers=NUM_WORKERS,
+    #                        cpu_threads=CPU_THREADS,
+    #                        download_root="./models")
+
     print("Loaded model")
     return whisper
 

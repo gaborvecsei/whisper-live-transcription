@@ -19,8 +19,30 @@ https://github.com/gaborvecsei/whisper-live-transcription/assets/18753533/3a4667
 
 # Run
 
-- `$ python server.py`
-- `$ python client.py`
+## Gradio interface
+
+```shell
+# Start the server (RestAPI)
+python server.py
+
+# --------------------------------
+
+# Start the Gradio interface on localhost (HTTP)
+python gradio_client_app.py
+
+# Start the Gradio interface with their sharing - this way the it'll be HTTPS without the need of certs
+SHARE=1 python gradio_client_app.py
+
+# Start the Gradio interface with your own certs
+SSL_CERT_PATH=<PATH> SSL_KEY_PATH=<PATH> python gradio_client_app.py
+```
+
+## In the command line
+
+```shell
+python server.py
+python client.py
+```
 
 There are a few parameters in each script that you can modify
 
