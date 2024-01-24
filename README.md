@@ -30,13 +30,13 @@ python server.py
 # --------------------------------
 
 # Start the Gradio interface on localhost (HTTP)
-python gradio_client.py
+python ui_client.py
 
 # Start the Gradio interface with their sharing - this way the it'll be HTTPS without the need of certs
-SHARE=1 python gradio_client.py
+SHARE=1 python ui_client.py
 
 # Start the Gradio interface with your own certs
-SSL_CERT_PATH=<PATH> SSL_KEY_PATH=<PATH> python gradio_client.py
+SSL_CERT_PATH=<PATH> SSL_KEY_PATH=<PATH> python ui_client.py
 ```
 
 ## In the command line
