@@ -99,11 +99,10 @@ def dummy_function(stream, new_chunk, max_length, latency_data, current_transcri
     info_df = info_df.round(2)
     info_df = info_df.astype(str) + " ms"
     info_df = info_df.T
+    info_df.index.name = ""
+    info_df = info_df.reset_index()
 
-    info_df_markdown = info_df.to_markdown()
-    info_df_markdown += f"\n\nTotal data points: {len(latency_data['total_latency'])}"
-
-    return stream, display_text, info_df_markdown, latency_data, current_transcription, transcription_history
+    return stream, display_text, info_df, latency_data, current_transcription, transcription_history
 
 
 custom_css = """
@@ -134,20 +133,21 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
     with gr.Row():
         mic_audio_input = gr.Audio(sources=["microphone"], streaming=True)
         reset_button = gr.Button("Reset")
-        max_length_input = gr.Slider(value=6, minimum=2, maximum=30, step=1, label="Max length of audio (sec)")
+        max_length_input = gr.Slider(value=10, minimum=2, maximum=30, step=1, label="Max length of audio (sec)")
         language_code_input = gr.Dropdown([("Auto detect", ""), ("English", "en"), ("Spanish", "es"), ("Italian", "it"),
                                            ("German", "de"), ("Hungarian", "hu"), ("Russian", "ru")],
                                           label="Language code",
                                           multiselect=False)
 
     gr.Markdown("## Transcription\n\n(audio is sent to the server each second)\n\n---------")
-    transcription_display = gr.Markdown(elem_classes=["transcription_display_container"])
+    transcription_display = gr.Textbox(lines=10, show_label=False, interactive=False, show_copy_button=True)
 
     gr.Markdown(
         "## Statistics\n\n---------\n\nThese are just rough estimates, as the latency can vary a lot based on where are the servers located, resampling is required, etc."
     )
 
-    information_table_outout = gr.Markdown("(Info about latency will be shown here)")
+    # information_table_outout = gr.Markdown("(Info about latency will be shown here)")
+    information_table_outout = gr.DataFrame(interactive=False, show_label=False)
 
     # In gradio the default samplign rate is 48000 (https://github.com/gradio-app/gradio/issues/6526)
     # and the chunks size varies between 24000 and 48000 - so between 0.5sec and 1 sec
@@ -164,7 +164,7 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
                             transcription_history_state, current_transcription_state):
         stream_state = None
         transcription_display = ""
-        information_table_outout = ""
+        information_table_outout = None
         latency_data_state = None
         transcription_history_state = []
         current_transcription_state = ""
