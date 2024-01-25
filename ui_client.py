@@ -114,7 +114,7 @@ def dummy_function(stream, new_chunk, max_length, latency_data,
     info_df.index.name = ""
     info_df = info_df.reset_index()
 
-    language_and_pred_text = f"(Predicted) Language: {language} ({language_pred * 100:.2f}%)"
+    language_and_pred_text = f"Predicted Language: {language} ({language_pred * 100:.2f}%)"
 
     return stream, display_text, info_df, latency_data, current_transcription, transcription_history, language_and_pred_text
 
@@ -161,6 +161,7 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
                                            ("Italian", "it"), ("German", "de"),
                                            ("Hungarian", "hu"),
                                            ("Russian", "ru")],
+                                          value="",
                                           label="Language code",
                                           multiselect=False)
 
