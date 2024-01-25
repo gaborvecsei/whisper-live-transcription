@@ -126,14 +126,6 @@ footer {visibility: hidden}
 
 with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
     gr.Markdown("# Live Transcription\n\n")
-    gr.Markdown("""## How to use it
-
-                * After you press `Start` you can start speaking - you microphone will be used
-                    * Enable the microphone input in Chrome/Firefox
-                * Select a language code, or if it's not selected it'll try to detect the language based on the audio
-                * If you press '`Stop`', then please also press '`Reset`'
-                * `Max length of audio` - how much audio data we'll process together. After reaching this limit, we'll reset the audio data and start over (this is when a new line appears)
-                """)
     nb_visitors_output = gr.Text(f"Page visits: {-1}",
                                  interactive=False,
                                  show_label=False)
@@ -147,26 +139,37 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
     # Stores the current transcription (as we process the audio in chunks, and we have a maximum lengtht of audio that we process together)
     current_transcription_state = gr.State("")
 
-    with gr.Row():
-        mic_audio_input = gr.Audio(sources=["microphone"], streaming=True)
-        reset_button = gr.Button("Reset")
-        max_length_input = gr.Slider(value=10,
-                                     minimum=2,
-                                     maximum=30,
-                                     step=1,
-                                     label="Max length of audio (sec)")
-        language_code_input = gr.Dropdown([("Auto detect", ""),
-                                           ("English", "en"),
-                                           ("Spanish", "es"),
-                                           ("Italian", "it"), ("German", "de"),
-                                           ("Hungarian", "hu"),
-                                           ("Russian", "ru")],
-                                          value="",
-                                          label="Language code",
-                                          multiselect=False)
+    with gr.Column():
+        gr.Markdown("## Controls")
+        with gr.Accordion(label="How to use it", open=False):
+            gr.Markdown("""
+                        * After you press `Start` you can start speaking - you microphone will be used
+                            * Enable the microphone input in Chrome/Firefox
+                        * Select a language code, or if it's not selected it'll try to detect the language based on the audio
+                        * If you press '`Stop`', then please also press '`Reset`'
+                        * `Max length of audio` - how much audio data we'll process together. After reaching this limit, we'll reset the audio data and start over (this is when a new line appears)
+                        """)
+        with gr.Row():
+            mic_audio_input = gr.Audio(sources=["microphone"], streaming=True)
+            reset_button = gr.Button("Reset")
+            max_length_input = gr.Slider(value=10,
+                                         minimum=2,
+                                         maximum=30,
+                                         step=1,
+                                         label="Max length of audio (sec)")
+            language_code_input = gr.Dropdown([("Auto detect", ""),
+                                               ("English", "en"),
+                                               ("Spanish", "es"),
+                                               ("Italian", "it"),
+                                               ("German", "de"),
+                                               ("Hungarian", "hu"),
+                                               ("Russian", "ru")],
+                                              value="",
+                                              label="Language code",
+                                              multiselect=False)
 
     gr.Markdown(
-        "## Transcription\n\n(audio is sent to the server each second)\n\n---------"
+        "-------\n\n## Transcription\n\n(audio is sent to the server each second)\n\n"
     )
     transcription_language_prod_output = gr.Text(lines=1,
                                                  show_label=False,
@@ -177,7 +180,7 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
                                        show_copy_button=True)
 
     gr.Markdown(
-        "## Statistics\n\n---------\n\nThese are just rough estimates, as the latency can vary a lot based on where are the servers located, resampling is required, etc."
+        "------\n\n## Statistics\n\nThese are just rough estimates, as the latency can vary a lot based on where are the servers located, resampling is required, etc."
     )
 
     # information_table_outout = gr.Markdown("(Info about latency will be shown here)")
@@ -220,7 +223,10 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
         current_transcription_state, transcription_language_prod_output
     ])
 
-    def _on_load():
+    def _on_load(request: gr.Request):
+        params = request.query_params
+        user_ip = request.client.host
+
         try:
             with open("visits.csv", "r") as f:
                 last_line = f.readlines()[-1]
@@ -230,9 +236,17 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
             last_number = 0
 
         with open("visits.csv", "a") as f:
-            f.write(f"{last_number + 1},{datetime.datetime.now()},visited\n")
+            f.write(
+                f"{last_number + 1},{datetime.datetime.now()},{user_ip},visited\n"
+            )
 
-        return f"Page visits: {last_number + 1}"
+        # Get the unique visitors count
+        unique_visitors = 0
+        with open("visits.csv", "r") as f:
+            nb_unique_visitors = len(
+                set([line.split(",")[2] for line in f.readlines()]))
+
+        return f"Page visits: {last_number + 1} / Unique visitors: {nb_unique_visitors}"
 
     demo.load(_on_load, [], [nb_visitors_output])
 
