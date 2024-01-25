@@ -125,7 +125,7 @@ footer {visibility: hidden}
 """
 
 with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# Live Transcription\n\n")
+    gr.Markdown("# Live Transcription PoC\n\n")
     nb_visitors_output = gr.Text(f"Page visits: {-1}",
                                  interactive=False,
                                  show_label=False)
@@ -160,6 +160,10 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
 4. **Audio Data Length**: 
    - The `Max length of audio` setting determines the maximum amount of audio data processed at a time.
    - Upon reaching this limit, the system will automatically reset the audio data, indicated by the start of a new line in the transcription. This is visualized below.
+5. **Transcribe and Translate**:
+   - Set the language code to the target language to translate the transcription.
+   - Speak in any other language and you'll see the translated text in the output.
+   - This is a **very hacky way to do translation** (and it's not recommended), but it's a good demonstration of the power of Whisper
 
 ```
 - max_length_of_audio = 4
