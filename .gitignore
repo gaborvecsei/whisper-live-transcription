@@ -6,3 +6,4 @@ asd.py
 test-*
 .venv/
 *.pem
+visits.csv

@@ -1,6 +1,7 @@
+import datetime
 import os
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 import gradio as gr
 import librosa
@@ -13,11 +14,9 @@ LENGHT_IN_SEC: int = 6  # We'll process this amount of audio data together maxim
 
 TRANSCRIPTION_API_ENDPOINT = "http://localhost:8008/predict"
 
-PAGE_VISITS = 0
-
 
 def send_audio_to_server(audio_data: np.ndarray,
-                         language_code: str = "") -> str:
+                         language_code: str = "") -> Tuple[str, str, float]:
     # This is how the server expects the data
     audio_data_bytes = audio_data.astype(np.int16).tobytes()
 
@@ -30,7 +29,8 @@ def send_audio_to_server(audio_data: np.ndarray,
                              })
 
     result = response.json()
-    return result["prediction"]
+    return result["prediction"], result["language"], result[
+        "language_probability"]
 
 
 def dummy_function(stream, new_chunk, max_length, latency_data,
@@ -59,6 +59,9 @@ def dummy_function(stream, new_chunk, max_length, latency_data,
     #     return stream, transcription_display, information_table_outout, latency_data, current_transcription, transcription_history
 
     transcription = "ERROR"
+    language = "ERROR"
+    language_pred = 0.0
+
     try:
         sampling_start_time = time.time()
         # We need to resample the audio chunk to 16kHz (without this we don't have any output) - gradio cannot handle this
@@ -76,8 +79,8 @@ def dummy_function(stream, new_chunk, max_length, latency_data,
         if isinstance(language_code, list):
             language_code = language_code[0] if len(language_code) > 0 else ""
 
-        transcription = send_audio_to_server(stream_resampled,
-                                             str(language_code))
+        transcription, language, language_pred = send_audio_to_server(
+            stream_resampled, str(language_code))
         current_transcription = f"{transcription}"
         # remove anything from the text which is between () or [] --> these are non-verbal background noises/music/etc.
         # transcription = re.sub(r"\[.*\]", "", transcription)
@@ -111,7 +114,9 @@ def dummy_function(stream, new_chunk, max_length, latency_data,
     info_df.index.name = ""
     info_df = info_df.reset_index()
 
-    return stream, display_text, info_df, latency_data, current_transcription, transcription_history
+    language_and_pred_text = f"(Predicted) Language: {language} ({language_pred * 100:.2f}%)"
+
+    return stream, display_text, info_df, latency_data, current_transcription, transcription_history, language_and_pred_text
 
 
 custom_css = """
@@ -129,7 +134,7 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
                 * If you press '`Stop`', then please also press '`Reset`'
                 * `Max length of audio` - how much audio data we'll process together. After reaching this limit, we'll reset the audio data and start over (this is when a new line appears)
                 """)
-    nb_visitors_output = gr.Text(f"Page visits: {PAGE_VISITS}",
+    nb_visitors_output = gr.Text(f"Page visits: {-1}",
                                  interactive=False,
                                  show_label=False)
 
@@ -162,6 +167,9 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
     gr.Markdown(
         "## Transcription\n\n(audio is sent to the server each second)\n\n---------"
     )
+    transcription_language_prod_output = gr.Text(lines=1,
+                                                 show_label=False,
+                                                 interactive=False)
     transcription_display = gr.Textbox(lines=10,
                                        show_label=False,
                                        interactive=False,
@@ -184,7 +192,7 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
     ], [
         stream_state, transcription_display, information_table_outout,
         latency_data_state, current_transcription_state,
-        transcription_history_state
+        transcription_history_state, transcription_language_prod_output
     ],
                            show_progress="hidden")
 
@@ -199,7 +207,7 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
         transcription_history_state = []
         current_transcription_state = ""
 
-        return stream_state, transcription_display, information_table_outout, latency_data_state, transcription_history_state, current_transcription_state
+        return stream_state, transcription_display, information_table_outout, latency_data_state, transcription_history_state, current_transcription_state, ""
 
     reset_button.click(_reset_button_click, [
         stream_state, transcription_display, information_table_outout,
@@ -208,13 +216,22 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
     ], [
         stream_state, transcription_display, information_table_outout,
         latency_data_state, transcription_history_state,
-        current_transcription_state
+        current_transcription_state, transcription_language_prod_output
     ])
 
     def _on_load():
-        global PAGE_VISITS
-        PAGE_VISITS += 1
-        return f"Page visits: {PAGE_VISITS}"
+        try:
+            with open("visits.csv", "r") as f:
+                last_line = f.readlines()[-1]
+                last_number = int(last_line.split(",")[0])
+        except Exception as e:
+            print("[*] Error with reading the file", e)
+            last_number = 0
+
+        with open("visits.csv", "a") as f:
+            f.write(f"{last_number + 1},{datetime.datetime.now()},visited\n")
+
+        return f"Page visits: {last_number + 1}"
 
     demo.load(_on_load, [], [nb_visitors_output])
 
