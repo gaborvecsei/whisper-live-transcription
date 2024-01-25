@@ -8,13 +8,16 @@ import numpy as np
 import pandas as pd
 import requests
 
-STEPS_IN_SEC: int = 1    # How frequently we should run the transcription
-LENGHT_IN_SEC: int = 6    # We'll process this amount of audio data together maximum
+STEPS_IN_SEC: int = 1  # How frequently we should run the transcription
+LENGHT_IN_SEC: int = 6  # We'll process this amount of audio data together maximum
 
 TRANSCRIPTION_API_ENDPOINT = "http://localhost:8008/predict"
 
+PAGE_VISITS = 0
 
-def send_audio_to_server(audio_data: np.ndarray, language_code: str = "") -> str:
+
+def send_audio_to_server(audio_data: np.ndarray,
+                         language_code: str = "") -> str:
     # This is how the server expects the data
     audio_data_bytes = audio_data.astype(np.int16).tobytes()
 
@@ -30,7 +33,8 @@ def send_audio_to_server(audio_data: np.ndarray, language_code: str = "") -> str
     return result["prediction"]
 
 
-def dummy_function(stream, new_chunk, max_length, latency_data, current_transcription, transcription_history,
+def dummy_function(stream, new_chunk, max_length, latency_data,
+                   current_transcription, transcription_history,
                    language_code):
     start_time = time.time()
 
@@ -60,22 +64,27 @@ def dummy_function(stream, new_chunk, max_length, latency_data, current_transcri
         # We need to resample the audio chunk to 16kHz (without this we don't have any output) - gradio cannot handle this
         # (https://github.com/jonashaag/audio-resampling-in-python)
         # We need to resample the concatenated stream, because if we resample chunk by chunk, the audio will be distorted
-        stream_resampled = librosa.resample(stream, orig_sr=sampling_rate, target_sr=16000)
+        stream_resampled = librosa.resample(stream,
+                                            orig_sr=sampling_rate,
+                                            target_sr=16000)
         sampling_end_time = time.time()
-        latency_data["total_resampling_latency"].append(sampling_end_time - sampling_start_time)
+        latency_data["total_resampling_latency"].append(sampling_end_time -
+                                                        sampling_start_time)
 
         transcription_start_time = time.time()
 
         if isinstance(language_code, list):
             language_code = language_code[0] if len(language_code) > 0 else ""
 
-        transcription = send_audio_to_server(stream_resampled, str(language_code))
+        transcription = send_audio_to_server(stream_resampled,
+                                             str(language_code))
         current_transcription = f"{transcription}"
         # remove anything from the text which is between () or [] --> these are non-verbal background noises/music/etc.
         # transcription = re.sub(r"\[.*\]", "", transcription)
         # transcription = re.sub(r"\(.*\)", "", transcription)
         transcription_end_time = time.time()
-        latency_data["total_transcription_latency"].append(transcription_end_time - transcription_start_time)
+        latency_data["total_transcription_latency"].append(
+            transcription_end_time - transcription_start_time)
 
     except Exception as e:
         print("[*] There is an error with the transcription", e)
@@ -120,6 +129,9 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
                 * If you press '`Stop`', then please also press '`Reset`'
                 * `Max length of audio` - how much audio data we'll process together. After reaching this limit, we'll reset the audio data and start over (this is when a new line appears)
                 """)
+    nb_visitors_output = gr.Text(f"Page visits: {PAGE_VISITS}",
+                                 interactive=False,
+                                 show_label=False)
 
     # Stores the audio data that we'll process
     stream_state = gr.State(None)
@@ -133,35 +145,53 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
     with gr.Row():
         mic_audio_input = gr.Audio(sources=["microphone"], streaming=True)
         reset_button = gr.Button("Reset")
-        max_length_input = gr.Slider(value=10, minimum=2, maximum=30, step=1, label="Max length of audio (sec)")
-        language_code_input = gr.Dropdown([("Auto detect", ""), ("English", "en"), ("Spanish", "es"), ("Italian", "it"),
-                                           ("German", "de"), ("Hungarian", "hu"), ("Russian", "ru")],
+        max_length_input = gr.Slider(value=10,
+                                     minimum=2,
+                                     maximum=30,
+                                     step=1,
+                                     label="Max length of audio (sec)")
+        language_code_input = gr.Dropdown([("Auto detect", ""),
+                                           ("English", "en"),
+                                           ("Spanish", "es"),
+                                           ("Italian", "it"), ("German", "de"),
+                                           ("Hungarian", "hu"),
+                                           ("Russian", "ru")],
                                           label="Language code",
                                           multiselect=False)
 
-    gr.Markdown("## Transcription\n\n(audio is sent to the server each second)\n\n---------")
-    transcription_display = gr.Textbox(lines=10, show_label=False, interactive=False, show_copy_button=True)
+    gr.Markdown(
+        "## Transcription\n\n(audio is sent to the server each second)\n\n---------"
+    )
+    transcription_display = gr.Textbox(lines=10,
+                                       show_label=False,
+                                       interactive=False,
+                                       show_copy_button=True)
 
     gr.Markdown(
         "## Statistics\n\n---------\n\nThese are just rough estimates, as the latency can vary a lot based on where are the servers located, resampling is required, etc."
     )
 
     # information_table_outout = gr.Markdown("(Info about latency will be shown here)")
-    information_table_outout = gr.DataFrame(interactive=False, show_label=False)
+    information_table_outout = gr.DataFrame(interactive=False,
+                                            show_label=False)
 
     # In gradio the default samplign rate is 48000 (https://github.com/gradio-app/gradio/issues/6526)
     # and the chunks size varies between 24000 and 48000 - so between 0.5sec and 1 sec
     mic_audio_input.stream(dummy_function, [
-        stream_state, mic_audio_input, max_length_input, latency_data_state, current_transcription_state,
-        transcription_history_state, language_code_input
+        stream_state, mic_audio_input, max_length_input, latency_data_state,
+        current_transcription_state, transcription_history_state,
+        language_code_input
     ], [
-        stream_state, transcription_display, information_table_outout, latency_data_state, current_transcription_state,
+        stream_state, transcription_display, information_table_outout,
+        latency_data_state, current_transcription_state,
         transcription_history_state
     ],
                            show_progress="hidden")
 
-    def _reset_button_click(stream_state, transcription_display, information_table_outout, latency_data_state,
-                            transcription_history_state, current_transcription_state):
+    def _reset_button_click(stream_state, transcription_display,
+                            information_table_outout, latency_data_state,
+                            transcription_history_state,
+                            current_transcription_state):
         stream_state = None
         transcription_display = ""
         information_table_outout = None
@@ -172,19 +202,30 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
         return stream_state, transcription_display, information_table_outout, latency_data_state, transcription_history_state, current_transcription_state
 
     reset_button.click(_reset_button_click, [
-        stream_state, transcription_display, information_table_outout, latency_data_state, transcription_history_state,
+        stream_state, transcription_display, information_table_outout,
+        latency_data_state, transcription_history_state,
         current_transcription_state
     ], [
-        stream_state, transcription_display, information_table_outout, latency_data_state, transcription_history_state,
+        stream_state, transcription_display, information_table_outout,
+        latency_data_state, transcription_history_state,
         current_transcription_state
     ])
 
-SSL_CERT_PATH:Optional[str] = os.environ.get("SSL_CERT_PATH", None)
-SSL_KEY_PATH:Optional[str]  = os.environ.get("SSL_KEY_PATH", None)
-SSL_VERIFY:bool = bool(os.environ.get("SSL_VERIFY", False))
-SHARE:bool = bool(os.environ.get("SHARE", False))
+    def _on_load():
+        global PAGE_VISITS
+        PAGE_VISITS += 1
+        return f"Page visits: {PAGE_VISITS}"
 
-print(f"Settings: SSL_CERT_PATH={SSL_CERT_PATH}, SSL_KEY_PATH={SSL_KEY_PATH}, SSL_VERIFY={SSL_VERIFY}, SHARE={SHARE}")
+    demo.load(_on_load, [], [nb_visitors_output])
+
+SSL_CERT_PATH: Optional[str] = os.environ.get("SSL_CERT_PATH", None)
+SSL_KEY_PATH: Optional[str] = os.environ.get("SSL_KEY_PATH", None)
+SSL_VERIFY: bool = bool(os.environ.get("SSL_VERIFY", False))
+SHARE: bool = bool(os.environ.get("SHARE", False))
+
+print(
+    f"Settings: SSL_CERT_PATH={SSL_CERT_PATH}, SSL_KEY_PATH={SSL_KEY_PATH}, SSL_VERIFY={SSL_VERIFY}, SHARE={SHARE}"
+)
 
 if SHARE:
     print("[*] Running in share mode")
@@ -201,6 +242,8 @@ else:
         ssl_certfile_path = None
         ssl_keyfile_path = None
 
-
-
-demo.launch(server_name="0.0.0.0", server_port=5656, ssl_certfile=ssl_certfile_path, ssl_keyfile=ssl_keyfile_path, ssl_verify=SSL_VERIFY)
+demo.launch(server_name="0.0.0.0",
+            server_port=5656,
+            ssl_certfile=ssl_certfile_path,
+            ssl_keyfile=ssl_keyfile_path,
+            ssl_verify=SSL_VERIFY)
