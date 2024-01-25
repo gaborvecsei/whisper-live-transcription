@@ -143,12 +143,41 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
         gr.Markdown("## Controls")
         with gr.Accordion(label="How to use it", open=False):
             gr.Markdown("""
-                        * After you press `Start` you can start speaking - you microphone will be used
-                            * Enable the microphone input in Chrome/Firefox
-                        * Select a language code, or if it's not selected it'll try to detect the language based on the audio
-                        * If you press '`Stop`', then please also press '`Reset`'
-                        * `Max length of audio` - how much audio data we'll process together. After reaching this limit, we'll reset the audio data and start over (this is when a new line appears)
-                        """)
+### How to Use the Live Transcription Service
+
+1. **Starting the Transcription**: 
+   - Click on the `Start` button to begin. 
+   - Make sure to allow microphone access in your browser (Chrome/Firefox).
+
+2. **Language Selection**: 
+   - Choose the desired language from the language code options. 
+   - If you don't select a language, the system will attempt to auto-detect it based on the audio input.
+
+3. **Stopping and Resetting**: 
+   - If you need to stop the transcription, click on `Stop`. 
+   - After stopping, it's important to click `Reset` to clear the existing data for a fresh start.
+
+4. **Audio Data Length**: 
+   - The `Max length of audio` setting determines the maximum amount of audio data processed at a time.
+   - Upon reaching this limit, the system will automatically reset the audio data, indicated by the start of a new line in the transcription. This is visualized below.
+
+```
+- max_length_of_audio = 4
+
+$t$ is the current time, and in this example 1 step is 1 second
+
+------------------------------------------
+1st second: [t,   0,   0,   0] --> "Hi"
+2nd second: [t-1, t,   0,   0] --> "Hi I am"
+3rd second: [t-2, t-1, t,   0] --> "Hi I am the one"
+4th second: [t-3, t-2, t-1, t] --> "Hi I am the one and only Gabor"
+5th second: [t,   0,   0,   0] --> "How" --> Here we started the process again as the limit was reached, and the output is in a new line
+6th second: [t-1, t,   0,   0] --> "How are"
+7th second: [t-2, t-1, t,   0] --> "How are you"
+etc...
+------------------------------------------
+```
+""")
         with gr.Row():
             mic_audio_input = gr.Audio(sources=["microphone"], streaming=True)
             reset_button = gr.Button("Reset")

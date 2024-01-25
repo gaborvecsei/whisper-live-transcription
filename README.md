@@ -56,7 +56,7 @@ This beautiful art will explain this:
 - step = 1
 - length = 4
 
-$t$ is the current tie (1 second of audio to be precise)
+$t$ is the current time (1 second of audio to be precise)
 
 ------------------------------------------
 1st second: [t,   0,   0,   0] --> "Hi"
